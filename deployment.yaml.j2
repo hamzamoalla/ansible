@@ -1,0 +1,20 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ container_name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ container_name }}
+  template:
+    metadata:
+      labels:
+        app: {{ container_name }}
+    spec:
+      containers:
+      - name: {{ container_name }}
+        image: {{ image }}
+        ports:
+        - containerPort: 80

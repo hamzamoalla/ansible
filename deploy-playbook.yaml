@@ -1,0 +1,68 @@
+---
+- name: Deploy in multiple namespaces
+  hosts: localhost
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    namespaces:
+      - dev
+      - test
+      - prod
+    image: nginx:latest
+    container_name: nginx
+    output_dir: ./output  
+
+  tasks:
+    - name: Create output directory
+      file:
+        path: "{{ output_dir }}"
+        state: directory
+
+
+    - name: Create namespaces if they do not exist
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: "{{ item }}"
+      loop: "{{ namespaces }}"
+      register: namespace_result
+
+    - name: Write Namespace YAML to file
+      copy:
+        content: |
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: {{ item }}
+        dest: "{{ output_dir }}/namespace-{{ item }}.yaml"
+      loop: "{{ namespaces }}"
+
+    - name: Create Deployment in each namespace and save to file
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'deployment.yaml.j2') }}"
+        namespace: "{{ item }}"
+      loop: "{{ namespaces }}"
+      register: deployment_result
+
+    - name: Write Deployment YAML to file
+      copy:
+        content: "{{ lookup('template', 'deployment.yaml.j2') }}"
+        dest: "{{ output_dir }}/deployment-{{ item }}.yaml"
+      loop: "{{ namespaces }}"
+
+    - name: Expose Service in each namespace and save to file
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'service.yaml.j2') }}"
+        namespace: "{{ item }}"
+      loop: "{{ namespaces }}"
+      register: service_result
+
+    - name: Write Service YAML to file
+      copy:
+        content: "{{ lookup('template', 'service.yaml.j2') }}"
+        dest: "{{ output_dir }}/service-{{ item }}.yaml"
+      loop: "{{ namespaces }}"
